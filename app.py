@@ -1,5 +1,10 @@
 import gradio as gr
 import os
+import google.generativeai as genai
+from dotenv import load_dotenv
+
+# load environment variables from .env file (to get API key for Gemini)
+load_dotenv()
 
 # set model version
 MODEL_NAME = 'gemini-1.5-flash'
@@ -14,8 +19,25 @@ else:
     
 print(f"Setting Gradio server port to {os.getenv('GRADIO_SERVER_PORT')}")
 
-def echo(message, history):
-    return message
+# get model configured
+# Configure the API key (replace with your actual key)
+genai.configure(api_key=os.getenv("API_KEY"))
 
-interface = gr.ChatInterface(fn=echo, examples=["show me how to write a python script", "show me how to write a simple API in python", "Show me how to write a networking script in python"], title="Echo Bot")
+model = genai.GenerativeModel(model_name=MODEL_NAME)
+
+def generate_response(message, history):
+  response = model.generate_content(message, safety_settings={
+        'HATE': 'BLOCK_NONE',
+        'HARASSMENT': 'BLOCK_NONE',
+        'SEXUAL' : 'BLOCK_NONE',
+        'DANGEROUS' : 'BLOCK_NONE'
+    })
+  print(response.candidates)
+  print(response.prompt_feedback)
+  return f"{response.text}"
+
+#def echo(message, history):
+#  return message
+
+interface = gr.ChatInterface(fn=generate_response, examples=["show me how to write a python script", "show me how to write a simple API in python", "Show me how to write a networking script in python"], title="Chat Bot")
 interface.launch(server_name="0.0.0.0")
