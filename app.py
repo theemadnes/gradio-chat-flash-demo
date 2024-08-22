@@ -1,6 +1,7 @@
 import gradio as gr
 import os
 import google.generativeai as genai
+from langchain_google_genai import ChatGoogleGenerativeAI
 from dotenv import load_dotenv
 
 # load environment variables from .env file (to get API key for Gemini)
@@ -25,8 +26,28 @@ genai.configure(api_key=os.getenv("API_KEY"))
 
 model = genai.GenerativeModel(model_name=MODEL_NAME)
 
+# langchain model setup
+os.environ["GOOGLE_API_KEY"] = os.getenv("API_KEY")
+
+llm = ChatGoogleGenerativeAI(
+    model=MODEL_NAME,
+    temperature=0,
+    max_tokens=None,
+    timeout=None,
+    max_retries=2,
+)
+
 def generate_response(message, history):
-  response = model.generate_content(message, safety_settings={
+  messages = [
+    (
+        "system",
+        "You are a helpful assistant that provides code examples",
+    ),
+    ("human", f"{message}"),
+  ]
+  ai_msg = llm.invoke(messages)
+  return f"{ai_msg.content}"
+  '''response = model.generate_content(message, safety_settings={
         'HATE': 'BLOCK_NONE',
         'HARASSMENT': 'BLOCK_NONE',
         'SEXUAL' : 'BLOCK_NONE',
@@ -34,7 +55,7 @@ def generate_response(message, history):
     })
   print(response.candidates)
   print(response.prompt_feedback)
-  return f"{response.text}"
+  return f"{response.text}"'''
 
 #def echo(message, history):
 #  return message
