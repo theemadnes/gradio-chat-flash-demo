@@ -1,6 +1,6 @@
 import gradio as gr
 import os
-import google.generativeai as genai
+#import google.generativeai as genai
 from langchain_google_genai import ChatGoogleGenerativeAI
 from dotenv import load_dotenv
 
@@ -22,9 +22,9 @@ print(f"Setting Gradio server port to {os.getenv('GRADIO_SERVER_PORT')}")
 
 # get model configured
 # Configure the API key (replace with your actual key)
-genai.configure(api_key=os.getenv("API_KEY"))
+#genai.configure(api_key=os.getenv("API_KEY"))
 
-model = genai.GenerativeModel(model_name=MODEL_NAME)
+#model = genai.GenerativeModel(model_name=MODEL_NAME)
 
 # langchain model setup
 os.environ["GOOGLE_API_KEY"] = os.getenv("API_KEY")
@@ -47,18 +47,6 @@ def generate_response(message, history):
   ]
   ai_msg = llm.invoke(messages)
   return f"{ai_msg.content}"
-  '''response = model.generate_content(message, safety_settings={
-        'HATE': 'BLOCK_NONE',
-        'HARASSMENT': 'BLOCK_NONE',
-        'SEXUAL' : 'BLOCK_NONE',
-        'DANGEROUS' : 'BLOCK_NONE'
-    })
-  print(response.candidates)
-  print(response.prompt_feedback)
-  return f"{response.text}"'''
-
-#def echo(message, history):
-#  return message
 
 interface = gr.ChatInterface(fn=generate_response, examples=["show me how to write a python script", "show me how to write a simple API in python", "Show me how to write a networking script in python"], title="Chat Bot")
 interface.launch(server_name="0.0.0.0")
