@@ -4,8 +4,27 @@ import os
 from langchain_google_genai import ChatGoogleGenerativeAI
 from dotenv import load_dotenv
 
+from langchain_google_vertexai import VertexAIEmbeddings, VertexAI
+from langchain_core.messages import AIMessage, HumanMessage
+from langchain.chains import ConversationalRetrievalChain
+from langchain.memory import ConversationSummaryBufferMemory
+from langchain_core.prompts import PromptTemplate
+from langchain_google_alloydb_pg import (
+    AlloyDBEngine,
+    AlloyDBVectorStore,
+    AlloyDBChatMessageHistory,
+)
+
 # load environment variables from .env file (to get API key for Gemini)
 load_dotenv()
+
+PROJECT_ID = os.environ.get('PROJECT_ID')  # @param {type:"string"}
+LOCATION = "us-central1"  # @param {type:"string"}
+cluster_name = os.environ.get('DB_CLUSTER')  # @param {type:"string"}
+instance_name = os.environ.get('DB_INSTANCE')  # @param {type:"string"}
+database_name = "ainetdevopsdb"  # @param {type:"string"}
+vector_table_name = "code_vector_table"
+password = os.environ.get('DB_PASS')
 
 # set model version
 MODEL_NAME = 'gemini-1.5-flash'
@@ -27,7 +46,7 @@ print(f"Setting Gradio server port to {os.getenv('GRADIO_SERVER_PORT')}")
 #model = genai.GenerativeModel(model_name=MODEL_NAME)
 
 # langchain model setup
-os.environ["GOOGLE_API_KEY"] = os.getenv("API_KEY")
+os.environ["GOOGLE_API_KEY"] = os.environ.get("API_KEY")
 
 llm = ChatGoogleGenerativeAI(
     model=MODEL_NAME,

@@ -7,3 +7,5 @@ pyvenv.cfg
 share/
 lib64
 .env
+cloud-sql-proxy
+alloydb-auth-proxy
