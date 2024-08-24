@@ -39,11 +39,74 @@ else:
     
 print(f"Setting Gradio server port to {os.getenv('GRADIO_SERVER_PORT')}")
 
-# get model configured
-# Configure the API key (replace with your actual key)
-#genai.configure(api_key=os.getenv("API_KEY"))
+# Intialize the embedding service
+embeddings_service = VertexAIEmbeddings(
+    model_name="textembedding-gecko@003", project=PROJECT_ID
+)
 
-#model = genai.GenerativeModel(model_name=MODEL_NAME)
+
+engine = AlloyDBEngine.from_instance(
+    project_id=PROJECT_ID,
+    instance=instance_name,
+    region=LOCATION,
+    cluster=cluster_name,
+    database=database_name,
+    user="postgres",
+    password=password,
+)
+
+# Intialize the Vector Store
+vector_store = AlloyDBVectorStore.create_sync(
+    engine=engine,
+    embedding_service=embeddings_service,
+    table_name=vector_table_name,
+    metadata_columns=[
+        "filenames",
+        "languages",
+    ],
+)
+
+message_table_name = "message_store"
+
+engine.init_chat_history_table(table_name=message_table_name)
+
+chat_history = AlloyDBChatMessageHistory.create_sync(
+    engine,
+    session_id="test-session",
+    table_name=message_table_name,
+)
+
+# Prepare some prompt templates for the ConversationalRetrievalChain
+prompt = PromptTemplate(
+    template="""Use all the information from the context and the conversation history to answer new question. If you see the answer in previous conversation history or the context. \
+Answer it with clarifying the source information. If you don't see it in the context or the chat history, just say you \
+didn't find the answer in the given data. Don't make things up. Add any citations of filenames that were referenced as the answer.
+
+Previous conversation history from the questioner. "Human" was the user who's asking the new question. "Assistant" was you as the assistant:
+```{chat_history}
+```
+
+Vector search result of the new question:
+```{context}
+```
+
+New Question:
+```{question}```
+
+Answer:""",
+    input_variables=["context", "question", "chat_history"],
+)
+condense_question_prompt_passthrough = PromptTemplate(
+    template="""Repeat the following question:
+{question}
+""",
+    input_variables=["question"],
+)
+
+
+retriever = vector_store.as_retriever(
+    search_type="mmr", search_kwargs={"k": 5, "lambda_mult": 0.8}
+)    
 
 # langchain model setup
 os.environ["GOOGLE_API_KEY"] = os.environ.get("API_KEY")
@@ -56,8 +119,29 @@ llm = ChatGoogleGenerativeAI(
     max_retries=2,
 )
 
+chat_history.clear()
+
+memory = ConversationSummaryBufferMemory(
+    llm=llm,
+    chat_memory=chat_history,
+    output_key="answer",
+    memory_key="chat_history",
+    return_messages=True,
+)
+
+rag_chain = ConversationalRetrievalChain.from_llm(
+    llm=llm,
+    retriever=retriever,
+    verbose=False,
+    memory=memory,
+    condense_question_prompt=condense_question_prompt_passthrough,
+    combine_docs_chain_kwargs={"prompt": prompt},
+)
+
 def generate_response(message, history):
-  messages = [
+  ans = rag_chain({"question": message, "chat_history": chat_history})["answer"]
+  return ans
+  '''messages = [
     (
         "system",
         "You are a helpful assistant that provides code examples",
@@ -65,7 +149,7 @@ def generate_response(message, history):
     ("human", f"{message}"),
   ]
   ai_msg = llm.invoke(messages)
-  return f"{ai_msg.content}"
+  return f"{ai_msg.content}"'''
 
 interface = gr.ChatInterface(fn=generate_response, examples=["show me how to write a python script", "show me how to write a simple API in python", "Show me how to write a networking script in python"], title="Chat Bot")
 interface.launch(server_name="0.0.0.0")
